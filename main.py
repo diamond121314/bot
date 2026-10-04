@@ -109,12 +109,11 @@ class TicketSelect(Select):
                 "🚩 **Mit tegyél most?**\n"
                 "▶️ Írd le részletesen a problémát vagy kérdést\n"
                 "▶️ Csatolj képet / videót ha szükséges\n"
-                "▶️ Ne pingelj staff tagokat – érkezni fognak!"
+                "▶️️ Ne pingelj staff tagokat – érkezni fognak!"
             ),
             color=discord.Color.from_rgb(119, 178, 85)
         )
-        # Itt eltávolítva a weboldalas footer, helyette üresen hagyva vagy törölve
-        # embed.set_footer(text="MineLush") 
+        # Weboldal elvetve innen
 
         await ticket_channel.send(content=user.mention, embed=embed, view=CloseTicketView())
         await interaction.followup.send(f"A hibajegy szobád elkészült: {ticket_channel.mention}", ephemeral=True)
@@ -142,7 +141,7 @@ async def koszont(interaction: discord.Interaction):
     await interaction.response.send_message(f"Szia {interaction.user.mention}! Örülök, hogy itt vagy!")
 
 @bot.tree.command(name="ticket", description="Hibajegy nyitó panel kiírása", guild=MY_GUILD)
-@app_commands.default_permissions(administrator=True)
+@app_commands.default_permissions(administrator=True) # <--- Csak admin használhatja és láthatja
 async def ticket(interaction: discord.Interaction):
     embed = discord.Embed(
         title="🎟️ Hibajegy nyitása",
@@ -155,6 +154,7 @@ async def ticket(interaction: discord.Interaction):
 @bot.tree.command(name="javaslat", description="Küldj be egy javaslatot a szerverre", guild=MY_GUILD)
 @app_commands.describe(szoveg="A javaslatod tartalma")
 async def javaslat(interaction: discord.Interaction, szoveg: str):
+    # Ezt bárki használhatja
     embed = discord.Embed(
         title=f"Javaslat - {interaction.user.name}",
         description=szoveg,
@@ -167,7 +167,7 @@ async def javaslat(interaction: discord.Interaction, szoveg: str):
     await interaction.response.send_message("A javaslatod sikeresen beküldve!", ephemeral=True)
 
 @bot.tree.command(name="nyeremenyjatek", description="Indíts nyereményjátékot (Csak Admin/Owner)", guild=MY_GUILD)
-@app_commands.default_permissions(administrator=True)
+@app_commands.default_permissions(administrator=True) # <--- Csak admin használhatja és láthatja
 @app_commands.describe(nyeremeny="Mi a nyeremény?")
 async def nyeremenyjatek(interaction: discord.Interaction, nyeremeny: str):
     embed = discord.Embed(
