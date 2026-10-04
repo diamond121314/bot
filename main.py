@@ -34,7 +34,7 @@ class MyBot(discord.Client):
 
     async def setup_hook(self):
         MY_GUILD = discord.Object(id=1396852655908720830)
-        self.tree.clear_commands(guild=None) # Kitakarítja a régi duplikált globális parancsokat
+        self.tree.clear_commands(guild=None) # Kitakarítja a régi duplikált parancsokat
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
         print("Minden parancs frissítve és szinkronizálva a szerverre!")
@@ -45,7 +45,19 @@ client = MyBot()
 async def on_ready():
     print(f'Sikeres bejelentkezés mint: {client.user}')
 
-# --- TICKET RENDSZER (Privát szoba létrehozása) ---
+# --- TICKET BEZÁRÓ GOMB ---
+class CloseTicketView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Ticket Bezárása", style=discord.ButtonStyle.danger, emoji="🔒", custom_id="close_ticket_btn")
+    async def close_ticket(self, interaction: discord.Interaction, button: Button):
+        await interaction.response.send_message("A ticket 5 másodperc múlva bezáródik...", ephemeral=True)
+        import asyncio
+        await asyncio.sleep(5)
+        await interaction.channel.delete()
+
+# --- TICKET LENYÍLÓ MENÜ ---
 class TicketSelect(Select):
     def __init__(self):
         options = [
@@ -58,30 +70,37 @@ class TicketSelect(Select):
     async def callback(self, interaction: discord.Interaction):
         guild = interaction.guild
         user = interaction.user
-        category = discord.utils.get(guild.categories, name="Tickets") # Opcionális: ha van 'Tickets' kategória
+        category = discord.utils.get(guild.categories, name="Tickets")
 
-        # Jogosultságok: csak a user és az adminok láthatják
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
             user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
             guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
         }
 
-        # Admin rang vagy Administrator jogosultság hozzáférése a szobához
         for role in guild.roles:
             if role.permissions.administrator:
                 overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
 
-        # Létrehozzuk a privát csatornát
         channel_name = f"ticket-{user.name}"
         ticket_channel = await guild.create_text_channel(channel_name, overwrites=overwrites, category=category)
 
+        # A képen látható pontos embed formátum
         embed = discord.Embed(
-            title=f"🎟️ Hibajegy: {self.values[0]}",
-            description=f"Szia {user.mention}! Köszönjük a megkeresést. Az adminisztrátorok hamarosan válaszolnak.\nA bezáráshoz írd be, hogy lezárás.",
-            color=discord.Color.green()
+            title="🎟️ Ticket Létrehozva",
+            description=(
+                "💬 **Köszönjük, hogy ticketet nyitottál!**\n"
+                "A csapatunk hamarosan felveszi veled a kapcsolatot, kérjük maradj türelmes.\n\n"
+                "🚩 **Mit tegyél most?**\n"
+                "▶️ Írd le részletesen a problémát vagy kérdést\n"
+                "▶️ Csatolj képet / videót ha szükséges\n"
+                "▶️ Ne pingelj staff tagokat – érkezni fognak!"
+            ),
+            color=discord.Color.from_rgb(119, 178, 85) # Zöldes oldal-sáv
         )
-        await ticket_channel.send(embed=embed)
+        embed.set_footer(text="MineLush @ www.minelush.hu")
+
+        await ticket_channel.send(content=user.mention, embed=embed, view=CloseTicketView())
         await interaction.response.send_message(f"A hibajegy szobád elkészült: {ticket_channel.mention}", ephemeral=True)
 
 class TicketView(View):
@@ -131,7 +150,7 @@ async def javaslat(interaction: discord.Interaction, szoveg: str):
     await msg.add_reaction("👎")
     await interaction.response.send_message("A javaslatod sikeresen beküldve!", ephemeral=True)
 
-@client.tree.command(name="nyeremenyjatek", description="Indíts nyereményjátékot (Csak Owner/Admin)")
+@client.tree.command(name="nyeremenyjatek", description="Indíts nyereményjátékot (Csak Admin/Owner)")
 @app_commands.default_permissions(administrator=True)
 @app_commands.describe(nyeremeny="Mi a nyeremény?")
 async def nyeremenyjatek(interaction: discord.Interaction, nyeremeny: str):
