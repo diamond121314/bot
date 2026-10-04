@@ -50,30 +50,6 @@ bot = MyBot()
 async def on_ready():
     print(f'Sikeres bejelentkezés mint: {bot.user}')
 
-# --- ÜDVÖZLŐ RENDSZER (AUTOMATIKUS) ---
-@bot.event
-async def on_member_join(member: discord.Member):
-    welcome_channel_name = "chat" 
-    role_name = "Tag" 
-
-    role = discord.utils.get(member.guild.roles, name=role_name)
-    if role:
-        try:
-            await member.add_roles(role)
-        except Exception as e:
-            print(f"Nem sikerült rangot adni: {e}")
-
-    channel = discord.utils.get(member.guild.text_channels, name=welcome_channel_name)
-    if channel:
-        embed = discord.Embed(
-            title="👋 Új tag érkezett!",
-            description=f"Szia {member.mention}! Köszöntelek a szerveren, érezd jól magad! 🚀",
-            color=discord.Color.green()
-        )
-        embed.set_thumbnail(url=member.display_avatar.url)
-        await channel.send(embed=embed)
-
-
 # --- TICKET BEZÁRÓ GOMB ---
 class CloseTicketView(View):
     def __init__(self):
@@ -161,14 +137,11 @@ class GiveAwayView(View):
 
     @discord.ui.button(label="Csatlakozz (0)", style=discord.ButtonStyle.blurple, emoji="🎉", custom_id="giveaway_join_dynamic")
     async def join_giveaway(self, interaction: discord.Interaction, button: Button):
-        # Azonnali válasz, hogy ne fusson ki az időből
         if interaction.user.id in self.participants:
             await interaction.response.send_message("Már csatlakoztál a nyereményjátékhoz! 🍀", ephemeral=True)
         else:
             self.participants.add(interaction.user.id)
             button.label = f"Csatlakozz ({len(self.participants)})"
-            
-            # Először frissítjük a gombot, majd küldünk egy üzenetet
             await interaction.response.edit_message(view=self)
             await interaction.followup.send("Sikeresen jelentkeztél a nyereményjátékra! Sok szerencsét! 🍀", ephemeral=True)
 
