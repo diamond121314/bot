@@ -77,14 +77,22 @@ class TicketSelect(Select):
         super().__init__(placeholder="Válassz indokot...", min_values=1, max_values=1, options=options, custom_id="ticket_select_menu_unique")
 
     async def callback(self, interaction: discord.Interaction):
+        guild = interaction.guild
+        user = interaction.user
+        channel_name = f"ticket-{user.name.lower()}"
+
+        # 1. Ellenőrzés, hogy van-e már nyitott ticketje
+        existing_channel = discord.utils.get(guild.text_channels, name=channel_name)
+        if existing_channel:
+            # Visszaállítjuk a menüt, hogy ne maradjon kiválasztva
+            await interaction.response.edit_message(view=TicketView())
+            await interaction.followup.send(f"Már van egy nyitott ticketed: {existing_channel.mention}!", ephemeral=True)
+            return
+
         # Azonnali válasz, hogy ne fusson ki az időből (3mp limit)
         await interaction.response.defer(thinking=True, ephemeral=True)
 
-        guild = interaction.guild
-        user = interaction.user
         category = discord.utils.get(guild.categories, name="Tickets")
-
-        # Ha nincs "Tickets" kategória, létrehozzuk automatikusan
         if not category:
             category = await guild.create_category("Tickets")
 
@@ -98,24 +106,25 @@ class TicketSelect(Select):
             if role.permissions.administrator:
                 overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
 
-        channel_name = f"ticket-{user.name.lower()}"
         ticket_channel = await guild.create_text_channel(channel_name, overwrites=overwrites, category=category)
 
         embed = discord.Embed(
-            title="🎟️ Ticket Létrehozva",
+            title="🎟️️ Ticket Létrehozva",
             description=(
                 "💬 **Köszönjük, hogy ticketet nyitottál!**\n"
                 "A csapatunk hamarosan felveszi veled a kapcsolatot, kérjük maradj türelmes.\n\n"
                 "🚩 **Mit tegyél most?**\n"
                 "▶️ Írd le részletesen a problémát vagy kérdést\n"
                 "▶️ Csatolj képet / videót ha szükséges\n"
-                "▶️️ Ne pingelj staff tagokat – érkezni fognak!"
+                "▶️ Ne pingelj staff tagokat – érkezni fognak!"
             ),
             color=discord.Color.from_rgb(119, 178, 85)
         )
-        # Weboldal elvetve innen
 
         await ticket_channel.send(content=user.mention, embed=embed, view=CloseTicketView())
+        
+        # 2. Üzenet szerkesztése, hogy a lenyíló menü alaphelyzetbe (üresre) álljon vissza
+        await interaction.message.edit(view=TicketView())
         await interaction.followup.send(f"A hibajegy szobád elkészült: {ticket_channel.mention}", ephemeral=True)
 
 class TicketView(View):
@@ -141,7 +150,7 @@ async def koszont(interaction: discord.Interaction):
     await interaction.response.send_message(f"Szia {interaction.user.mention}! Örülök, hogy itt vagy!")
 
 @bot.tree.command(name="ticket", description="Hibajegy nyitó panel kiírása", guild=MY_GUILD)
-@app_commands.default_permissions(administrator=True) # <--- Csak admin használhatja és láthatja
+@app_commands.default_permissions(administrator=True)
 async def ticket(interaction: discord.Interaction):
     embed = discord.Embed(
         title="🎟️ Hibajegy nyitása",
@@ -154,7 +163,6 @@ async def ticket(interaction: discord.Interaction):
 @bot.tree.command(name="javaslat", description="Küldj be egy javaslatot a szerverre", guild=MY_GUILD)
 @app_commands.describe(szoveg="A javaslatod tartalma")
 async def javaslat(interaction: discord.Interaction, szoveg: str):
-    # Ezt bárki használhatja
     embed = discord.Embed(
         title=f"Javaslat - {interaction.user.name}",
         description=szoveg,
@@ -167,7 +175,7 @@ async def javaslat(interaction: discord.Interaction, szoveg: str):
     await interaction.response.send_message("A javaslatod sikeresen beküldve!", ephemeral=True)
 
 @bot.tree.command(name="nyeremenyjatek", description="Indíts nyereményjátékot (Csak Admin/Owner)", guild=MY_GUILD)
-@app_commands.default_permissions(administrator=True) # <--- Csak admin használhatja és láthatja
+@app_commands.default_permissions(administrator=True)
 @app_commands.describe(nyeremeny="Mi a nyeremény?")
 async def nyeremenyjatek(interaction: discord.Interaction, nyeremeny: str):
     embed = discord.Embed(
