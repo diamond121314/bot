@@ -34,7 +34,7 @@ class MyBot(discord.Client):
 
     async def setup_hook(self):
         MY_GUILD = discord.Object(id=1396852655908720830)
-        self.tree.clear_commands(guild=None) # Kitakarítja a régi duplikált parancsokat
+        self.tree.clear_commands(guild=None)
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
         print("Minden parancs frissítve és szinkronizálva a szerverre!")
@@ -68,6 +68,9 @@ class TicketSelect(Select):
         super().__init__(placeholder="Válassz indokot...", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
+        # 1. AZONNAL jelezzük a Discordnak, hogy dolgozunk rajta (elkerüljük a "nem reagált időben" hibát)
+        await interaction.response.defer(ephemeral=True)
+
         guild = interaction.guild
         user = interaction.user
         category = discord.utils.get(guild.categories, name="Tickets")
@@ -85,7 +88,6 @@ class TicketSelect(Select):
         channel_name = f"ticket-{user.name}"
         ticket_channel = await guild.create_text_channel(channel_name, overwrites=overwrites, category=category)
 
-        # A képen látható pontos embed formátum
         embed = discord.Embed(
             title="🎟️ Ticket Létrehozva",
             description=(
@@ -96,12 +98,14 @@ class TicketSelect(Select):
                 "▶️ Csatolj képet / videót ha szükséges\n"
                 "▶️ Ne pingelj staff tagokat – érkezni fognak!"
             ),
-            color=discord.Color.from_rgb(119, 178, 85) # Zöldes oldal-sáv
+            color=discord.Color.from_rgb(119, 178, 85)
         )
         embed.set_footer(text="MineLush @ www.minelush.hu")
 
         await ticket_channel.send(content=user.mention, embed=embed, view=CloseTicketView())
-        await interaction.response.send_message(f"A hibajegy szobád elkészült: {ticket_channel.mention}", ephemeral=True)
+        
+        # Utólagos válasz a deferred kérésre
+        await interaction.followup.send(f"A hibajegy szobád elkészült: {ticket_channel.mention}", ephemeral=True)
 
 class TicketView(View):
     def __init__(self):
