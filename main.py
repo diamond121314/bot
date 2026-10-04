@@ -1,5 +1,7 @@
 import os
 import threading
+import asyncio
+import random
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import discord
 from discord.ext import commands
@@ -35,12 +37,9 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        # Perzisztens nézetek regisztrálása
         self.add_view(TicketView())
         self.add_view(CloseTicketView())
-        self.add_view(GiveAwayView())
 
-        # Parancsok szinkronizálása a szerverrel
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
         print("Minden parancs és nézet sikeresen szinkronizálva!")
@@ -59,7 +58,6 @@ class CloseTicketView(View):
     @discord.ui.button(label="Ticket Bezárása", style=discord.ButtonStyle.danger, emoji="🔒", custom_id="close_ticket_btn")
     async def close_ticket(self, interaction: discord.Interaction, button: Button):
         await interaction.response.send_message("A ticket 5 másodperc múlva bezáródik...", ephemeral=True)
-        import asyncio
         await asyncio.sleep(5)
         try:
             await interaction.channel.delete()
@@ -81,15 +79,12 @@ class TicketSelect(Select):
         user = interaction.user
         channel_name = f"ticket-{user.name.lower()}"
 
-        # 1. Ellenőrzés, hogy van-e már nyitott ticketje
         existing_channel = discord.utils.get(guild.text_channels, name=channel_name)
         if existing_channel:
-            # Visszaállítjuk a menüt, hogy ne maradjon kiválasztva
             await interaction.response.edit_message(view=TicketView())
             await interaction.followup.send(f"Már van egy nyitott ticketed: {existing_channel.mention}!", ephemeral=True)
             return
 
-        # Azonnali válasz, hogy ne fusson ki az időből (3mp limit)
         await interaction.response.defer(thinking=True, ephemeral=True)
 
         category = discord.utils.get(guild.categories, name="Tickets")
@@ -109,7 +104,7 @@ class TicketSelect(Select):
         ticket_channel = await guild.create_text_channel(channel_name, overwrites=overwrites, category=category)
 
         embed = discord.Embed(
-            title="🎟️️ Ticket Létrehozva",
+            title="🎟 Ticket Létrehozva",
             description=(
                 "💬 **Köszönjük, hogy ticketet nyitottál!**\n"
                 "A csapatunk hamarosan felveszi veled a kapcsolatot, kérjük maradj türelmes.\n\n"
@@ -122,8 +117,6 @@ class TicketSelect(Select):
         )
 
         await ticket_channel.send(content=user.mention, embed=embed, view=CloseTicketView())
-        
-        # 2. Üzenet szerkesztése, hogy a lenyíló menü alaphelyzetbe (üresre) álljon vissza
         await interaction.message.edit(view=TicketView())
         await interaction.followup.send(f"A hibajegy szobád elkészült: {ticket_channel.mention}", ephemeral=True)
 
@@ -133,14 +126,48 @@ class TicketView(View):
         self.add_item(TicketSelect())
 
 
-# --- NYEREMÉNYJÁTÉK GOMB ---
+# --- NYEREMÉNYJÁTÉK VIEW ÉS LOGIKA ---
 class GiveAwayView(View):
-    def __init__(self):
-        super().__init__(timeout=None)
+    def __init__(self, nyeremeny: str, organizer: str, duration_minutes: int):
+        super().__init__(timeout=duration_minutes * 60)
+        self.nyeremeny = nyeremeny
+        self.organizer = organizer
+        self.participants = set()  # Felhasználók azonosítói, hogy ne tudjon duplán jelentkezni
+        self.message = None
 
-    @discord.ui.button(label="Csatlakozz a nyereményjátékhoz 🎉", style=discord.ButtonStyle.blurple, custom_id="giveaway_join_btn")
+    @discord.ui.button(label="Csatlakozz (0)", style=discord.ButtonStyle.blurple, emoji="🎉", custom_id="giveaway_join_dynamic")
     async def join_giveaway(self, interaction: discord.Interaction, button: Button):
-        await interaction.response.send_message("Sikeresen jelentkeztél a nyereményjátékra! Sok szerencsét! 🍀", ephemeral=True)
+        if interaction.user.id in self.participants:
+            await interaction.response.send_message("Már csatlakoztál a nyereményjátékhoz! 🍀", ephemeral=True)
+        else:
+            self.participants.add(interaction.user.id)
+            button.label = f"Csatlakozz ({len(self.participants)})"
+            await interaction.response.edit_message(view=self)
+            await interaction.followup.send("Sikeresen jelentkeztél a nyereményjátékra! Sok szerencsét! 🍀", ephemeral=True)
+
+    async def on_timeout(self):
+        # Amikor letelik az idő
+        for child in self.children:
+            child.disabled = True
+
+        if self.message:
+            try:
+                embed = self.message.embeds[0]
+                if self.participants:
+                    winner_id = random.choice(list(self.participants))
+                    winner = self.message.guild.get_member(winner_id)
+                    winner_text = winner.mention if winner else f"<@{winner_id}>"
+                    embed.color = discord.Color.green()
+                    embed.add_field(name="🏆 Nyertes", value=f"Gratulálunk! 🎉 {winner_text}", inline=False)
+                else:
+                    embed.color = discord.Color.red()
+                    embed.add_field(name="🏆 Nyertes", value="Senki sem csatlakozott a játékhoz!", inline=False)
+
+                await self.message.edit(embed=embed, view=self)
+                if self.participants:
+                    await self.message.channel.send(f"🎉 **A nyereményjáték véget ért!** A nyertes: {winner.mention if winner else 'Ismeretlen'}! Gratulálunk a(z) **{self.nyeremeny}** megnyeréséhez!")
+            except Exception as e:
+                print(f"Hiba a sorsoláskor: {e}")
 
 
 # --- SLASH PARANCSOK ---
@@ -174,18 +201,26 @@ async def javaslat(interaction: discord.Interaction, szoveg: str):
     await msg.add_reaction("👎")
     await interaction.response.send_message("A javaslatod sikeresen beküldve!", ephemeral=True)
 
-@bot.tree.command(name="nyeremenyjatek", description="Indíts nyereményjátékot (Csak Admin/Owner)", guild=MY_GUILD)
+@bot.tree.command(name="nyeremenyjatek", description="Indíts nyereményjátékot időzítővel és sorsolással", guild=MY_GUILD)
 @app_commands.default_permissions(administrator=True)
-@app_commands.describe(nyeremeny="Mi a nyeremény?")
-async def nyeremenyjatek(interaction: discord.Interaction, nyeremeny: str):
+@app_commands.describe(nyeremeny="Mi a nyeremény?", ido="Mennyi ideig tartson (percben)?")
+async def nyeremenyjatek(interaction: discord.Interaction, nyeremeny: str, ido: int):
     embed = discord.Embed(
         title="🎁 Új Nyereményjáték!",
-        description=f"**Nyeremény:** {nyeremeny}\n\nKattints az alábbi gombra a jelentkezéshez!",
+        description=(
+            f"**Nyeremény:** {nyeremeny}\n"
+            f"⏳ **Időtartam:** {ido} perc\n\n"
+            "Kattints az alábbi gombra a jelentkezéshez!"
+        ),
         color=discord.Color.purple()
     )
     embed.set_footer(text=f"Szervező: {interaction.user.name}")
-    await interaction.channel.send(embed=embed, view=GiveAwayView())
+
+    view = GiveAwayView(nyeremeny=nyeremeny, organizer=interaction.user.name, duration_minutes=ido)
+    
     await interaction.response.send_message("Nyereményjáték elindítva!", ephemeral=True)
+    message = await interaction.channel.send(embed=embed, view=view)
+    view.message = message
 
 # -----------------------------------------------
 
