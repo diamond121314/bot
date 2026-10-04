@@ -84,7 +84,7 @@ class TicketSelect(Select):
         user = interaction.user
         category = discord.utils.get(guild.categories, name="Tickets")
 
-        # Ha nincs "Tickets" kategória, létrehozzuk egyet automatikusan
+        # Ha nincs "Tickets" kategória, létrehozzuk automatikusan
         if not category:
             category = await guild.create_category("Tickets")
 
@@ -113,7 +113,8 @@ class TicketSelect(Select):
             ),
             color=discord.Color.from_rgb(119, 178, 85)
         )
-        embed.set_footer(text="MineLush @ www.minelush.hu")
+        # Itt eltávolítva a weboldalas footer, helyette üresen hagyva vagy törölve
+        # embed.set_footer(text="MineLush") 
 
         await ticket_channel.send(content=user.mention, embed=embed, view=CloseTicketView())
         await interaction.followup.send(f"A hibajegy szobád elkészült: {ticket_channel.mention}", ephemeral=True)
@@ -174,7 +175,7 @@ async def nyeremenyjatek(interaction: discord.Interaction, nyeremeny: str):
         description=f"**Nyeremény:** {nyeremeny}\n\nKattints az alábbi gombra a jelentkezéshez!",
         color=discord.Color.purple()
     )
-    embed.set_footer(text=f"Szervezor: {interaction.user.name}")
+    embed.set_footer(text=f"Szervező: {interaction.user.name}")
     await interaction.channel.send(embed=embed, view=GiveAwayView())
     await interaction.response.send_message("Nyereményjáték elindítva!", ephemeral=True)
 
