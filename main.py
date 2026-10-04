@@ -35,12 +35,12 @@ class MyBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        # Perzisztens nézetek regisztrálása, hogy újraindítás után is működjenek a gombok
+        # Perzisztens nézetek regisztrálása
         self.add_view(TicketView())
         self.add_view(CloseTicketView())
         self.add_view(GiveAwayView())
 
-        # Parancsok szinkronizálása a tesztszerverrel
+        # Parancsok szinkronizálása a szerverrel
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
         print("Minden parancs és nézet sikeresen szinkronizálva!")
@@ -74,14 +74,19 @@ class TicketSelect(Select):
             discord.SelectOption(label="Játékos jelentése", description="Szabályszegő játékos jelentése", emoji="⚠️"),
             discord.SelectOption(label="Egyéb kérdés", description="Minden más jellegű kérdés", emoji="❓")
         ]
-        super().__init__(placeholder="Válassz indokot...", min_values=1, max_values=1, options=options, custom_id="ticket_select_menu")
+        super().__init__(placeholder="Válassz indokot...", min_values=1, max_values=1, options=options, custom_id="ticket_select_menu_unique")
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
+        # Azonnali válasz, hogy ne fusson ki az időből (3mp limit)
+        await interaction.response.defer(thinking=True, ephemeral=True)
 
         guild = interaction.guild
         user = interaction.user
         category = discord.utils.get(guild.categories, name="Tickets")
+
+        # Ha nincs "Tickets" kategória, létrehozzuk egyet automatikusan
+        if not category:
+            category = await guild.create_category("Tickets")
 
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
@@ -93,7 +98,7 @@ class TicketSelect(Select):
             if role.permissions.administrator:
                 overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
 
-        channel_name = f"ticket-{user.name}"
+        channel_name = f"ticket-{user.name.lower()}"
         ticket_channel = await guild.create_text_channel(channel_name, overwrites=overwrites, category=category)
 
         embed = discord.Embed(
@@ -169,7 +174,7 @@ async def nyeremenyjatek(interaction: discord.Interaction, nyeremeny: str):
         description=f"**Nyeremény:** {nyeremeny}\n\nKattints az alábbi gombra a jelentkezéshez!",
         color=discord.Color.purple()
     )
-    embed.set_footer(text=f"Szervező: {interaction.user.name}")
+    embed.set_footer(text=f"Szervezor: {interaction.user.name}")
     await interaction.channel.send(embed=embed, view=GiveAwayView())
     await interaction.response.send_message("Nyereményjáték elindítva!", ephemeral=True)
 
