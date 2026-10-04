@@ -33,8 +33,8 @@ class MyBot(discord.Client):
         self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self):
-        # IDE ÍRD BE A DISCORD SZERVERED ID-JÉT (számként, idézőjel nélkül!)
-        MY_GUILD = discord.Object(id=SZERVER_ID_HELYE_SZAMMAL)
+        # A te tesztszervered ID-je beállítva:
+        MY_GUILD = discord.Object(id=1396852655908720830)
         
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
