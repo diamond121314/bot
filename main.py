@@ -24,13 +24,11 @@ server_thread = threading.Thread(target=run_server)
 server_thread.daemon = True
 server_thread.start()
 
-# 2. Discord bot beállítása
+# 2. Discord bot beállítása (Globális mód)
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 intents.presences = True
-
-MY_GUILD = discord.Object(id=1396852655908720830)
 
 class MyBot(commands.Bot):
     def __init__(self):
@@ -40,9 +38,9 @@ class MyBot(commands.Bot):
         self.add_view(TicketView())
         self.add_view(CloseTicketView())
 
-        self.tree.copy_global_to(guild=MY_GUILD)
-        await self.tree.sync(guild=MY_GUILD)
-        print("Minden parancs és nézet sikeresen szinkronizálva!")
+        # Globális szinkronizálás (minden szerveren működik)
+        await self.tree.sync()
+        print("Minden parancs globálisan szinkronizálva!")
 
 bot = MyBot()
 
@@ -111,7 +109,7 @@ class TicketSelect(Select):
                 "🚩 **Mit tegyél most?**\n"
                 "▶️ Írd le részletesen a problémát vagy kérdést\n"
                 "▶️ Csatolj képet / videót ha szükséges\n"
-                "▶️ Ne pingelj staff tagokat – érkezni fognak!"
+                "▶️️ Ne pingelj staff tagokat – érkezni fognak!"
             ),
             color=discord.Color.from_rgb(119, 178, 85)
         )
@@ -169,13 +167,9 @@ class GiveAwayView(View):
                 print(f"Hiba a sorsoláskor: {e}")
 
 
-# --- SLASH PARANCSOK ---
+# --- SLASH PARANCSOK (Globális) ---
 
-@bot.tree.command(name="koszont", description="A bot köszönt téged!", guild=MY_GUILD)
-async def koszont(interaction: discord.Interaction):
-    await interaction.response.send_message(f"Szia {interaction.user.mention}! Örülök, hogy itt vagy!")
-
-@bot.tree.command(name="ticket", description="Hibajegy nyitó panel kiírása", guild=MY_GUILD)
+@bot.tree.command(name="ticket", description="Hibajegy nyitó panel kiírása")
 @app_commands.default_permissions(administrator=True)
 async def ticket(interaction: discord.Interaction):
     embed = discord.Embed(
@@ -186,7 +180,7 @@ async def ticket(interaction: discord.Interaction):
     await interaction.channel.send(embed=embed, view=TicketView())
     await interaction.response.send_message("A ticket panel sikeresen elküldve!", ephemeral=True)
 
-@bot.tree.command(name="javaslat", description="Küldj be egy javaslatot a szerverre", guild=MY_GUILD)
+@bot.tree.command(name="javaslat", description="Küldj be egy javaslatot a szerverre")
 @app_commands.describe(szoveg="A javaslatod tartalma")
 async def javaslat(interaction: discord.Interaction, szoveg: str):
     embed = discord.Embed(
@@ -200,7 +194,7 @@ async def javaslat(interaction: discord.Interaction, szoveg: str):
     await msg.add_reaction("👎")
     await interaction.response.send_message("A javaslatod sikeresen beküldve!", ephemeral=True)
 
-@bot.tree.command(name="nyeremenyjatek", description="Indíts nyereményjátékot időzítővel és sorsolással", guild=MY_GUILD)
+@bot.tree.command(name="nyeremenyjatek", description="Indíts nyereményjátékot időzítővel és sorsolással")
 @app_commands.default_permissions(administrator=True)
 @app_commands.describe(nyeremeny="Mi a nyeremény?", ido="Mennyi ideig tartson (percben)?")
 async def nyeremenyjatek(interaction: discord.Interaction, nyeremeny: str, ido: int):
