@@ -25,7 +25,7 @@ server_thread.start()
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-intents.presence = True
+intents.presences = True  # Javítva presences-re
 
 class MyBot(discord.Client):
     def __init__(self):
@@ -53,7 +53,6 @@ class TicketSelect(Select):
         super().__init__(placeholder="Válassz indokot...", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        # Itt hozzuk létre majd a privát csatornát a kiválasztott indok alapján
         await interaction.response.send_message(f"A hibajegyed rögzítve lett ezzel az indokkal: **{self.values[0]}**. Létrehozom a szobát...", ephemeral=True)
 
 class TicketView(View):
