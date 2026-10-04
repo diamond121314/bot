@@ -25,7 +25,7 @@ server_thread.start()
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-intents.presences = True  # Javítva presences-re
+intents.presences = True
 
 class MyBot(discord.Client):
     def __init__(self):
@@ -66,9 +66,9 @@ class TicketView(View):
 async def koszont(interaction: discord.Interaction):
     await interaction.response.send_message(f"Szia {interaction.user.mention}! Örülök, hogy itt vagy!")
 
-@client.tree.command(name="ticketpanel", description="Hibajegy nyitó panel kiírása")
+@client.tree.command(name="ticket", description="Hibajegy nyitó panel kiírása")
 @app_commands.default_permissions(administrator=True)
-async def ticketpanel(interaction: discord.Interaction):
+async def ticket(interaction: discord.Interaction):
     embed = discord.Embed(
         title="🎟️ Hibajegy nyitása",
         description="Válassz indokot a segítségkéréshez!",
