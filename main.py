@@ -20,9 +20,11 @@ server_thread = threading.Thread(target=run_server)
 server_thread.daemon = True
 server_thread.start()
 
-# 2. Discord bot beállítása intents-el és parancsfával
+# 2. Discord bot beállítása a Developer Portalon bekapcsolt intents-ekkel
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
+intents.presence = True
 
 class MyBot(discord.Client):
     def __init__(self):
