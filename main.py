@@ -24,7 +24,7 @@ server_thread = threading.Thread(target=run_server)
 server_thread.daemon = True
 server_thread.start()
 
-# 2. Discord bot beállítása (members intent szükséges a belépés figyeléséhez!)
+# 2. Discord bot beállítása
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -53,13 +53,9 @@ async def on_ready():
 # --- ÜDVÖZLŐ RENDSZER (AUTOMATIKUS) ---
 @bot.event
 async def on_member_join(member: discord.Member):
-    # IDE ÍRD BE ANNAK A CSATORNÁNAK A NEVÉT, AHova kiírja a köszöntést (pl. "koszono", "general", "chat")
     welcome_channel_name = "chat" 
-    
-    # IDE ÍRD BE AUTOMATIKUSAN ADOTT RANG NEVÉT (pl. "Játékos", "Tagok")
     role_name = "Tag" 
 
-    # 1. Rang hozzáadása a belépőhöz
     role = discord.utils.get(member.guild.roles, name=role_name)
     if role:
         try:
@@ -67,7 +63,6 @@ async def on_member_join(member: discord.Member):
         except Exception as e:
             print(f"Nem sikerült rangot adni: {e}")
 
-    # 2. Üzenet küldése a megadott csatornába
     channel = discord.utils.get(member.guild.text_channels, name=welcome_channel_name)
     if channel:
         embed = discord.Embed(
@@ -166,11 +161,14 @@ class GiveAwayView(View):
 
     @discord.ui.button(label="Csatlakozz (0)", style=discord.ButtonStyle.blurple, emoji="🎉", custom_id="giveaway_join_dynamic")
     async def join_giveaway(self, interaction: discord.Interaction, button: Button):
+        # Azonnali válasz, hogy ne fusson ki az időből
         if interaction.user.id in self.participants:
             await interaction.response.send_message("Már csatlakoztál a nyereményjátékhoz! 🍀", ephemeral=True)
         else:
             self.participants.add(interaction.user.id)
             button.label = f"Csatlakozz ({len(self.participants)})"
+            
+            # Először frissítjük a gombot, majd küldünk egy üzenetet
             await interaction.response.edit_message(view=self)
             await interaction.followup.send("Sikeresen jelentkeztél a nyereményjátékra! Sok szerencsét! 🍀", ephemeral=True)
 
