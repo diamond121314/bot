@@ -24,7 +24,7 @@ server_thread = threading.Thread(target=run_server)
 server_thread.daemon = True
 server_thread.start()
 
-# 2. Discord bot beállítása
+# 2. Discord bot beállítása (members intent szükséges a belépés figyeléséhez!)
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -49,6 +49,35 @@ bot = MyBot()
 @bot.event
 async def on_ready():
     print(f'Sikeres bejelentkezés mint: {bot.user}')
+
+# --- ÜDVÖZLŐ RENDSZER (AUTOMATIKUS) ---
+@bot.event
+async def on_member_join(member: discord.Member):
+    # IDE ÍRD BE ANNAK A CSATORNÁNAK A NEVÉT, AHova kiírja a köszöntést (pl. "koszono", "general", "chat")
+    welcome_channel_name = "chat" 
+    
+    # IDE ÍRD BE AUTOMATIKUSAN ADOTT RANG NEVÉT (pl. "Játékos", "Tagok")
+    role_name = "Tag" 
+
+    # 1. Rang hozzáadása a belépőhöz
+    role = discord.utils.get(member.guild.roles, name=role_name)
+    if role:
+        try:
+            await member.add_roles(role)
+        except Exception as e:
+            print(f"Nem sikerült rangot adni: {e}")
+
+    # 2. Üzenet küldése a megadott csatornába
+    channel = discord.utils.get(member.guild.text_channels, name=welcome_channel_name)
+    if channel:
+        embed = discord.Embed(
+            title="👋 Új tag érkezett!",
+            description=f"Szia {member.mention}! Köszöntelek a szerveren, érezd jól magad! 🚀",
+            color=discord.Color.green()
+        )
+        embed.set_thumbnail(url=member.display_avatar.url)
+        await channel.send(embed=embed)
+
 
 # --- TICKET BEZÁRÓ GOMB ---
 class CloseTicketView(View):
@@ -132,7 +161,7 @@ class GiveAwayView(View):
         super().__init__(timeout=duration_minutes * 60)
         self.nyeremeny = nyeremeny
         self.organizer = organizer
-        self.participants = set()  # Felhasználók azonosítói, hogy ne tudjon duplán jelentkezni
+        self.participants = set()
         self.message = None
 
     @discord.ui.button(label="Csatlakozz (0)", style=discord.ButtonStyle.blurple, emoji="🎉", custom_id="giveaway_join_dynamic")
@@ -146,7 +175,6 @@ class GiveAwayView(View):
             await interaction.followup.send("Sikeresen jelentkeztél a nyereményjátékra! Sok szerencsét! 🍀", ephemeral=True)
 
     async def on_timeout(self):
-        # Amikor letelik az idő
         for child in self.children:
             child.disabled = True
 
