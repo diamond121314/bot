@@ -27,17 +27,20 @@ intents.message_content = True
 intents.members = True
 intents.presences = True
 
+# A te szervered ID-je
+MY_GUILD = discord.Object(id=1396852655908720830)
+
 class MyBot(discord.Client):
     def __init__(self):
         super().__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self):
-        MY_GUILD = discord.Object(id=1396852655908720830)
-        self.tree.clear_commands(guild=None)
+        # Szinkronizáljuk a parancsokat közvetlenül a szerverre
+        self.tree.clear_commands(guild=MY_GUILD)
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
-        print("Minden parancs frissítve és szinkronizálva a szerverre!")
+        print("Minden parancs sikeresen szinkronizálva a szerverre!")
 
 client = MyBot()
 
@@ -68,7 +71,6 @@ class TicketSelect(Select):
         super().__init__(placeholder="Válassz indokot...", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        # 1. AZONNAL jelezzük a Discordnak, hogy dolgozunk rajta (elkerüljük a "nem reagált időben" hibát)
         await interaction.response.defer(ephemeral=True)
 
         guild = interaction.guild
@@ -103,8 +105,6 @@ class TicketSelect(Select):
         embed.set_footer(text="MineLush @ www.minelush.hu")
 
         await ticket_channel.send(content=user.mention, embed=embed, view=CloseTicketView())
-        
-        # Utólagos válasz a deferred kérésre
         await interaction.followup.send(f"A hibajegy szobád elkészült: {ticket_channel.mention}", ephemeral=True)
 
 class TicketView(View):
@@ -123,13 +123,13 @@ class GiveAwayView(View):
         await interaction.response.send_message("Sikeresen jelentkeztél a nyereményjátékra! Sok szerencsét! 🍀", ephemeral=True)
 
 
-# --- SLASH PARANCSOK ---
+# --- SLASH PARANCSOK (közvetlenül a tesztszerverhez kötve) ---
 
-@client.tree.command(name="koszont", description="A bot köszönt téged!")
+@client.tree.command(name="koszont", description="A bot köszönt téged!", guild=MY_GUILD)
 async def koszont(interaction: discord.Interaction):
     await interaction.response.send_message(f"Szia {interaction.user.mention}! Örülök, hogy itt vagy!")
 
-@client.tree.command(name="ticket", description="Hibajegy nyitó panel kiírása")
+@client.tree.command(name="ticket", description="Hibajegy nyitó panel kiírása", guild=MY_GUILD)
 @app_commands.default_permissions(administrator=True)
 async def ticket(interaction: discord.Interaction):
     embed = discord.Embed(
@@ -140,7 +140,7 @@ async def ticket(interaction: discord.Interaction):
     await interaction.channel.send(embed=embed, view=TicketView())
     await interaction.response.send_message("A ticket panel sikeresen elküldve!", ephemeral=True)
 
-@client.tree.command(name="javaslat", description="Küldj be egy javaslatot a szerverre")
+@client.tree.command(name="javaslat", description="Küldj be egy javaslatot a szerverre", guild=MY_GUILD)
 @app_commands.describe(szoveg="A javaslatod tartalma")
 async def javaslat(interaction: discord.Interaction, szoveg: str):
     embed = discord.Embed(
@@ -154,7 +154,7 @@ async def javaslat(interaction: discord.Interaction, szoveg: str):
     await msg.add_reaction("👎")
     await interaction.response.send_message("A javaslatod sikeresen beküldve!", ephemeral=True)
 
-@client.tree.command(name="nyeremenyjatek", description="Indíts nyereményjátékot (Csak Admin/Owner)")
+@client.tree.command(name="nyeremenyjatek", description="Indíts nyereményjátékot (Csak Admin/Owner)", guild=MY_GUILD)
 @app_commands.default_permissions(administrator=True)
 @app_commands.describe(nyeremeny="Mi a nyeremény?")
 async def nyeremenyjatek(interaction: discord.Interaction, nyeremeny: str):
@@ -165,7 +165,7 @@ async def nyeremenyjatek(interaction: discord.Interaction, nyeremeny: str):
     )
     embed.set_footer(text=f"Szervező: {interaction.user.name}")
     await interaction.channel.send(embed=embed, view=GiveAwayView())
-    await interaction.response.send_message("A nyereményjáték elindítva!", ephemeral=True)
+    await interaction.response.send_message("Nyereményjáték elindítva!", ephemeral=True)
 
 # -----------------------------------------------
 
