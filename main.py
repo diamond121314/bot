@@ -2,6 +2,7 @@ import os
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import discord
+from discord.ext import commands
 from discord import app_commands
 from discord.ui import Select, View, Button
 
@@ -21,32 +22,34 @@ server_thread = threading.Thread(target=run_server)
 server_thread.daemon = True
 server_thread.start()
 
-# 2. Discord bot beállítása intents-el
+# 2. Discord bot beállítása
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 intents.presences = True
 
-# A te szervered ID-je
 MY_GUILD = discord.Object(id=1396852655908720830)
 
-class MyBot(discord.Client):
+class MyBot(commands.Bot):
     def __init__(self):
-        super().__init__(intents=intents)
-        self.tree = app_commands.CommandTree(self)
+        super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        # Szinkronizáljuk a parancsokat közvetlenül a szerverre
-        self.tree.clear_commands(guild=MY_GUILD)
+        # Perzisztens nézetek regisztrálása, hogy újraindítás után is működjenek a gombok
+        self.add_view(TicketView())
+        self.add_view(CloseTicketView())
+        self.add_view(GiveAwayView())
+
+        # Parancsok szinkronizálása a tesztszerverrel
         self.tree.copy_global_to(guild=MY_GUILD)
         await self.tree.sync(guild=MY_GUILD)
-        print("Minden parancs sikeresen szinkronizálva a szerverre!")
+        print("Minden parancs és nézet sikeresen szinkronizálva!")
 
-client = MyBot()
+bot = MyBot()
 
-@client.event
+@bot.event
 async def on_ready():
-    print(f'Sikeres bejelentkezés mint: {client.user}')
+    print(f'Sikeres bejelentkezés mint: {bot.user}')
 
 # --- TICKET BEZÁRÓ GOMB ---
 class CloseTicketView(View):
@@ -58,7 +61,10 @@ class CloseTicketView(View):
         await interaction.response.send_message("A ticket 5 másodperc múlva bezáródik...", ephemeral=True)
         import asyncio
         await asyncio.sleep(5)
-        await interaction.channel.delete()
+        try:
+            await interaction.channel.delete()
+        except Exception:
+            pass
 
 # --- TICKET LENYÍLÓ MENÜ ---
 class TicketSelect(Select):
@@ -68,7 +74,7 @@ class TicketSelect(Select):
             discord.SelectOption(label="Játékos jelentése", description="Szabályszegő játékos jelentése", emoji="⚠️"),
             discord.SelectOption(label="Egyéb kérdés", description="Minden más jellegű kérdés", emoji="❓")
         ]
-        super().__init__(placeholder="Válassz indokot...", min_values=1, max_values=1, options=options)
+        super().__init__(placeholder="Válassz indokot...", min_values=1, max_values=1, options=options, custom_id="ticket_select_menu")
 
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
@@ -118,18 +124,18 @@ class GiveAwayView(View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="Csatlakozz a nyereményjátékhoz 🎉", style=discord.ButtonStyle.blurple)
+    @discord.ui.button(label="Csatlakozz a nyereményjátékhoz 🎉", style=discord.ButtonStyle.blurple, custom_id="giveaway_join_btn")
     async def join_giveaway(self, interaction: discord.Interaction, button: Button):
         await interaction.response.send_message("Sikeresen jelentkeztél a nyereményjátékra! Sok szerencsét! 🍀", ephemeral=True)
 
 
-# --- SLASH PARANCSOK (közvetlenül a tesztszerverhez kötve) ---
+# --- SLASH PARANCSOK ---
 
-@client.tree.command(name="koszont", description="A bot köszönt téged!", guild=MY_GUILD)
+@bot.tree.command(name="koszont", description="A bot köszönt téged!", guild=MY_GUILD)
 async def koszont(interaction: discord.Interaction):
     await interaction.response.send_message(f"Szia {interaction.user.mention}! Örülök, hogy itt vagy!")
 
-@client.tree.command(name="ticket", description="Hibajegy nyitó panel kiírása", guild=MY_GUILD)
+@bot.tree.command(name="ticket", description="Hibajegy nyitó panel kiírása", guild=MY_GUILD)
 @app_commands.default_permissions(administrator=True)
 async def ticket(interaction: discord.Interaction):
     embed = discord.Embed(
@@ -140,7 +146,7 @@ async def ticket(interaction: discord.Interaction):
     await interaction.channel.send(embed=embed, view=TicketView())
     await interaction.response.send_message("A ticket panel sikeresen elküldve!", ephemeral=True)
 
-@client.tree.command(name="javaslat", description="Küldj be egy javaslatot a szerverre", guild=MY_GUILD)
+@bot.tree.command(name="javaslat", description="Küldj be egy javaslatot a szerverre", guild=MY_GUILD)
 @app_commands.describe(szoveg="A javaslatod tartalma")
 async def javaslat(interaction: discord.Interaction, szoveg: str):
     embed = discord.Embed(
@@ -154,7 +160,7 @@ async def javaslat(interaction: discord.Interaction, szoveg: str):
     await msg.add_reaction("👎")
     await interaction.response.send_message("A javaslatod sikeresen beküldve!", ephemeral=True)
 
-@client.tree.command(name="nyeremenyjatek", description="Indíts nyereményjátékot (Csak Admin/Owner)", guild=MY_GUILD)
+@bot.tree.command(name="nyeremenyjatek", description="Indíts nyereményjátékot (Csak Admin/Owner)", guild=MY_GUILD)
 @app_commands.default_permissions(administrator=True)
 @app_commands.describe(nyeremeny="Mi a nyeremény?")
 async def nyeremenyjatek(interaction: discord.Interaction, nyeremeny: str):
@@ -170,4 +176,4 @@ async def nyeremenyjatek(interaction: discord.Interaction, nyeremeny: str):
 # -----------------------------------------------
 
 token = os.getenv('DISCORD_TOKEN')
-client.run(token)
+bot.run(token)
